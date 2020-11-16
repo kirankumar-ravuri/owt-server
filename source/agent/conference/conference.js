@@ -230,6 +230,7 @@ var Conference = function (rpcClient, selfRpcId) {
    */
   var subscriptions = {};
   var selfCleanTimer = null;
+  var roomCleanupInProgress = false;
 
   var rpcChannel = require('./rpcChannel')(rpcClient),
       rpcReq = require('./rpcRequest')(rpcChannel);
@@ -451,6 +452,7 @@ var Conference = function (rpcClient, selfRpcId) {
       participants = {};
       selfCleanTimer && clearTimeout(selfCleanTimer);
       selfCleanTimer = null;
+      roomCleanupInProgress = false;
       room_id = undefined;
     };
 
@@ -824,6 +826,7 @@ var Conference = function (rpcClient, selfRpcId) {
     selfCleanTimer = setTimeout(function() {
       selfCleanTimer = null;
       if (roomIsIdle()) {
+        roomCleanupInProgress = true;
         log.info('Empty room ', room_id, '. Deleting it');
         destroyRoom();
       }
@@ -848,7 +851,12 @@ var Conference = function (rpcClient, selfRpcId) {
           callback('callback', 'error', 'Room is full');
           return Promise.reject('Room is full');
         }
-
+        if(roomCleanupInProgress){
+          log.warn('Room cleanup in progress');
+          callback('callback', 'error', 'Room cleanup in progress');
+          return Promise.reject('Room cleanup in progress');
+        }
+      
         var my_role_def = room_config.roles.filter((roleDef) => {return roleDef.role === participantInfo.role;});
         if (my_role_def.length < 1) {
           callback('callback', 'error', 'Invalid role');
